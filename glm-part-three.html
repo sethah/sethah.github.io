@@ -1,0 +1,1664 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <link href='//fonts.googleapis.com/css?family=Source+Sans+Pro:300,400,700,400italic' rel='stylesheet' type='text/css'>
+
+    <link rel="stylesheet" type="text/css" href="https://sethah.github.io/theme/stylesheet/style.min.css">
+
+  <link rel="stylesheet" type="text/css" href="https://sethah.github.io/theme/pygments/github.min.css">
+  <link rel="stylesheet" type="text/css" href="https://sethah.github.io/theme/font-awesome/css/font-awesome.min.css">
+
+
+    <link href="https://sethah.github.io/feeds/all.atom.xml" type="application/atom+xml" rel="alternate" title="Seth's Blog Atom">
+
+
+
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="HandheldFriendly" content="True" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="" />
+
+
+<meta name="author" content="Seth" />
+<meta name="description" content="Solving the GLM (the hard part)¶GLMs are a tricky bunch. They sound simple, but we're seeing in this series on GLMs that they aren't so easy to solve. In this third and final post on GLMs, we'll do some serious math to get a solution for GLMs, and then tidy things up and package it all into a nice little algorithm." />
+<meta name="keywords" content="ml, python">
+<meta property="og:site_name" content="Seth's Blog"/>
+<meta property="og:title" content="GLMs Part III - Solving the GLM using iteratively reweighted least squares"/>
+<meta property="og:description" content="Solving the GLM (the hard part)¶GLMs are a tricky bunch. They sound simple, but we're seeing in this series on GLMs that they aren't so easy to solve. In this third and final post on GLMs, we'll do some serious math to get a solution for GLMs, and then tidy things up and package it all into a nice little algorithm."/>
+<meta property="og:locale" content="en_US"/>
+<meta property="og:url" content="https://sethah.github.io/glm-part-three.html"/>
+<meta property="og:type" content="article"/>
+<meta property="article:published_time" content="2017-07-07 00:00:00-07:00"/>
+<meta property="article:modified_time" content=""/>
+<meta property="article:author" content="https://sethah.github.io/author/seth.html">
+<meta property="article:section" content="posts"/>
+<meta property="article:tag" content="ml"/>
+<meta property="article:tag" content="python"/>
+<meta property="og:image" content="/images/profile.jpg">
+
+  <title>Seth's Blog &ndash; GLMs Part III - Solving the GLM using iteratively reweighted least squares</title>
+
+</head>
+<body>
+  <aside>
+    <div>
+      <a href="https://sethah.github.io">
+        <img src="/images/profile.jpg" alt="" title="">
+      </a>
+      <h1><a href="https://sethah.github.io"></a></h1>
+
+
+      <nav>
+        <ul class="list">
+          <li><a href="https://sethah.github.io/pages/about.html#about">About</a></li>
+
+        </ul>
+      </nav>
+
+      <ul class="social">
+        <li><a class="sc-linkedin" href="https://linkedin.com/in/sethah" target="_blank"><i class="fa fa-linkedin"></i></a></li>
+        <li><a class="sc-github" href="https://github.com/sethah" target="_blank"><i class="fa fa-github"></i></a></li>
+        <li><a class="sc-twitter" href="https://twitter.com/shendrickson16" target="_blank"><i class="fa fa-twitter"></i></a></li>
+      </ul>
+    </div>
+
+
+  </aside>
+  <main>
+
+    <nav>
+      <a href="https://sethah.github.io">    Home
+</a>
+
+      <a href="/archives.html">Archives</a>
+      <a href="/categories.html">Categories</a>
+      <a href="/tags.html">Tags</a>
+
+      <a href="https://sethah.github.io/feeds/all.atom.xml">    Atom
+</a>
+
+    </nav>
+
+<article class="single">
+  <header>
+    <h1 id="glm-part-three">GLMs Part III - Solving the GLM using iteratively reweighted least squares</h1>
+    <p>
+          Posted on Fri 07 July 2017 in <a href="https://sethah.github.io/category/posts.html">posts</a>
+
+
+    </p>
+  </header>
+
+
+  <div>
+    <style type="text/css">/*!
+*
+* IPython notebook
+*
+*/
+/* CSS font colors for translated ANSI colors. */
+.ansibold {
+  font-weight: bold;
+}
+/* use dark versions for foreground, to improve visibility */
+.ansiblack {
+  color: black;
+}
+.ansired {
+  color: darkred;
+}
+.ansigreen {
+  color: darkgreen;
+}
+.ansiyellow {
+  color: #c4a000;
+}
+.ansiblue {
+  color: darkblue;
+}
+.ansipurple {
+  color: darkviolet;
+}
+.ansicyan {
+  color: steelblue;
+}
+.ansigray {
+  color: gray;
+}
+/* and light for background, for the same reason */
+.ansibgblack {
+  background-color: black;
+}
+.ansibgred {
+  background-color: red;
+}
+.ansibggreen {
+  background-color: green;
+}
+.ansibgyellow {
+  background-color: yellow;
+}
+.ansibgblue {
+  background-color: blue;
+}
+.ansibgpurple {
+  background-color: magenta;
+}
+.ansibgcyan {
+  background-color: cyan;
+}
+.ansibggray {
+  background-color: gray;
+}
+div.cell {
+  /* Old browsers */
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-box-align: stretch;
+  display: -moz-box;
+  -moz-box-orient: vertical;
+  -moz-box-align: stretch;
+  display: box;
+  box-orient: vertical;
+  box-align: stretch;
+  /* Modern browsers */
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  border-radius: 2px;
+  box-sizing: border-box;
+  -moz-box-sizing: border-box;
+  -webkit-box-sizing: border-box;
+  border-width: 1px;
+  border-style: solid;
+  border-color: transparent;
+  width: 100%;
+  padding: 5px;
+  /* This acts as a spacer between cells, that is outside the border */
+  margin: 0px;
+  outline: none;
+  border-left-width: 1px;
+  padding-left: 5px;
+  background: linear-gradient(to right, transparent -40px, transparent 1px, transparent 1px, transparent 100%);
+}
+div.cell.jupyter-soft-selected {
+  border-left-color: #90CAF9;
+  border-left-color: #E3F2FD;
+  border-left-width: 1px;
+  padding-left: 5px;
+  border-right-color: #E3F2FD;
+  border-right-width: 1px;
+  background: #E3F2FD;
+}
+@media print {
+  div.cell.jupyter-soft-selected {
+    border-color: transparent;
+  }
+}
+div.cell.selected {
+  border-color: #ababab;
+  border-left-width: 0px;
+  padding-left: 6px;
+  background: linear-gradient(to right, #42A5F5 -40px, #42A5F5 5px, transparent 5px, transparent 100%);
+}
+@media print {
+  div.cell.selected {
+    border-color: transparent;
+  }
+}
+div.cell.selected.jupyter-soft-selected {
+  border-left-width: 0;
+  padding-left: 6px;
+  background: linear-gradient(to right, #42A5F5 -40px, #42A5F5 7px, #E3F2FD 7px, #E3F2FD 100%);
+}
+.edit_mode div.cell.selected {
+  border-color: #66BB6A;
+  border-left-width: 0px;
+  padding-left: 6px;
+  background: linear-gradient(to right, #66BB6A -40px, #66BB6A 5px, transparent 5px, transparent 100%);
+}
+@media print {
+  .edit_mode div.cell.selected {
+    border-color: transparent;
+  }
+}
+.prompt {
+  /* This needs to be wide enough for 3 digit prompt numbers: In[100]: */
+  min-width: 14ex;
+  /* This padding is tuned to match the padding on the CodeMirror editor. */
+  padding: 0.4em;
+  margin: 0px;
+  font-family: monospace;
+  text-align: right;
+  /* This has to match that of the the CodeMirror class line-height below */
+  line-height: 1.21429em;
+  /* Don't highlight prompt number selection */
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  -khtml-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+  /* Use default cursor */
+  cursor: default;
+}
+@media (max-width: 540px) {
+  .prompt {
+    text-align: left;
+  }
+}
+div.inner_cell {
+  min-width: 0;
+  /* Old browsers */
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-box-align: stretch;
+  display: -moz-box;
+  -moz-box-orient: vertical;
+  -moz-box-align: stretch;
+  display: box;
+  box-orient: vertical;
+  box-align: stretch;
+  /* Modern browsers */
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  /* Old browsers */
+  -webkit-box-flex: 1;
+  -moz-box-flex: 1;
+  box-flex: 1;
+  /* Modern browsers */
+  flex: 1;
+}
+/* input_area and input_prompt must match in top border and margin for alignment */
+div.input_area {
+  border: 1px solid #cfcfcf;
+  border-radius: 2px;
+  background: #f7f7f7;
+  line-height: 1.21429em;
+}
+/* This is needed so that empty prompt areas can collapse to zero height when there
+   is no content in the output_subarea and the prompt. The main purpose of this is
+   to make sure that empty JavaScript output_subareas have no height. */
+div.prompt:empty {
+  padding-top: 0;
+  padding-bottom: 0;
+}
+div.unrecognized_cell {
+  padding: 5px 5px 5px 0px;
+  /* Old browsers */
+  display: -webkit-box;
+  -webkit-box-orient: horizontal;
+  -webkit-box-align: stretch;
+  display: -moz-box;
+  -moz-box-orient: horizontal;
+  -moz-box-align: stretch;
+  display: box;
+  box-orient: horizontal;
+  box-align: stretch;
+  /* Modern browsers */
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+}
+div.unrecognized_cell .inner_cell {
+  border-radius: 2px;
+  padding: 5px;
+  font-weight: bold;
+  color: red;
+  border: 1px solid #cfcfcf;
+  background: #eaeaea;
+}
+div.unrecognized_cell .inner_cell a {
+  color: inherit;
+  text-decoration: none;
+}
+div.unrecognized_cell .inner_cell a:hover {
+  color: inherit;
+  text-decoration: none;
+}
+@media (max-width: 540px) {
+  div.unrecognized_cell > div.prompt {
+    display: none;
+  }
+}
+div.code_cell {
+  /* avoid page breaking on code cells when printing */
+}
+@media print {
+  div.code_cell {
+    page-break-inside: avoid;
+  }
+}
+/* any special styling for code cells that are currently running goes here */
+div.input {
+  page-break-inside: avoid;
+  /* Old browsers */
+  display: -webkit-box;
+  -webkit-box-orient: horizontal;
+  -webkit-box-align: stretch;
+  display: -moz-box;
+  -moz-box-orient: horizontal;
+  -moz-box-align: stretch;
+  display: box;
+  box-orient: horizontal;
+  box-align: stretch;
+  /* Modern browsers */
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+}
+@media (max-width: 540px) {
+  div.input {
+    /* Old browsers */
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-box-align: stretch;
+    display: -moz-box;
+    -moz-box-orient: vertical;
+    -moz-box-align: stretch;
+    display: box;
+    box-orient: vertical;
+    box-align: stretch;
+    /* Modern browsers */
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
+/* input_area and input_prompt must match in top border and margin for alignment */
+div.input_prompt {
+  color: #303F9F;
+  border-top: 1px solid transparent;
+}
+div.input_area > div.highlight {
+  margin: 0.4em;
+  border: none;
+  padding: 0px;
+  background-color: transparent;
+}
+div.input_area > div.highlight > pre {
+  margin: 0px;
+  border: none;
+  padding: 0px;
+  background-color: transparent;
+}
+/* The following gets added to the <head> if it is detected that the user has a
+ * monospace font with inconsistent normal/bold/italic height.  See
+ * notebookmain.js.  Such fonts will have keywords vertically offset with
+ * respect to the rest of the text.  The user should select a better font.
+ * See: https://github.com/ipython/ipython/issues/1503
+ *
+ * .CodeMirror span {
+ *      vertical-align: bottom;
+ * }
+ */
+.CodeMirror {
+  line-height: 1.21429em;
+  /* Changed from 1em to our global default */
+  font-size: 14px;
+  height: auto;
+  /* Changed to auto to autogrow */
+  background: none;
+  /* Changed from white to allow our bg to show through */
+}
+.CodeMirror-scroll {
+  /*  The CodeMirror docs are a bit fuzzy on if overflow-y should be hidden or visible.*/
+  /*  We have found that if it is visible, vertical scrollbars appear with font size changes.*/
+  overflow-y: hidden;
+  overflow-x: auto;
+}
+.CodeMirror-lines {
+  /* In CM2, this used to be 0.4em, but in CM3 it went to 4px. We need the em value because */
+  /* we have set a different line-height and want this to scale with that. */
+  padding: 0.4em;
+}
+.CodeMirror-linenumber {
+  padding: 0 8px 0 4px;
+}
+.CodeMirror-gutters {
+  border-bottom-left-radius: 2px;
+  border-top-left-radius: 2px;
+}
+.CodeMirror pre {
+  /* In CM3 this went to 4px from 0 in CM2. We need the 0 value because of how we size */
+  /* .CodeMirror-lines */
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+}
+/*
+
+Original style from softwaremaniacs.org (c) Ivan Sagalaev <Maniac@SoftwareManiacs.Org>
+Adapted from GitHub theme
+
+*/
+.highlight-base {
+  color: #000;
+}
+.highlight-variable {
+  color: #000;
+}
+.highlight-variable-2 {
+  color: #1a1a1a;
+}
+.highlight-variable-3 {
+  color: #333333;
+}
+.highlight-string {
+  color: #BA2121;
+}
+.highlight-comment {
+  color: #408080;
+  font-style: italic;
+}
+.highlight-number {
+  color: #080;
+}
+.highlight-atom {
+  color: #88F;
+}
+.highlight-keyword {
+  color: #008000;
+  font-weight: bold;
+}
+.highlight-builtin {
+  color: #008000;
+}
+.highlight-error {
+  color: #f00;
+}
+.highlight-operator {
+  color: #AA22FF;
+  font-weight: bold;
+}
+.highlight-meta {
+  color: #AA22FF;
+}
+/* previously not defined, copying from default codemirror */
+.highlight-def {
+  color: #00f;
+}
+.highlight-string-2 {
+  color: #f50;
+}
+.highlight-qualifier {
+  color: #555;
+}
+.highlight-bracket {
+  color: #997;
+}
+.highlight-tag {
+  color: #170;
+}
+.highlight-attribute {
+  color: #00c;
+}
+.highlight-header {
+  color: blue;
+}
+.highlight-quote {
+  color: #090;
+}
+.highlight-link {
+  color: #00c;
+}
+/* apply the same style to codemirror */
+.cm-s-ipython span.cm-keyword {
+  color: #008000;
+  font-weight: bold;
+}
+.cm-s-ipython span.cm-atom {
+  color: #88F;
+}
+.cm-s-ipython span.cm-number {
+  color: #080;
+}
+.cm-s-ipython span.cm-def {
+  color: #00f;
+}
+.cm-s-ipython span.cm-variable {
+  color: #000;
+}
+.cm-s-ipython span.cm-operator {
+  color: #AA22FF;
+  font-weight: bold;
+}
+.cm-s-ipython span.cm-variable-2 {
+  color: #1a1a1a;
+}
+.cm-s-ipython span.cm-variable-3 {
+  color: #333333;
+}
+.cm-s-ipython span.cm-comment {
+  color: #408080;
+  font-style: italic;
+}
+.cm-s-ipython span.cm-string {
+  color: #BA2121;
+}
+.cm-s-ipython span.cm-string-2 {
+  color: #f50;
+}
+.cm-s-ipython span.cm-meta {
+  color: #AA22FF;
+}
+.cm-s-ipython span.cm-qualifier {
+  color: #555;
+}
+.cm-s-ipython span.cm-builtin {
+  color: #008000;
+}
+.cm-s-ipython span.cm-bracket {
+  color: #997;
+}
+.cm-s-ipython span.cm-tag {
+  color: #170;
+}
+.cm-s-ipython span.cm-attribute {
+  color: #00c;
+}
+.cm-s-ipython span.cm-header {
+  color: blue;
+}
+.cm-s-ipython span.cm-quote {
+  color: #090;
+}
+.cm-s-ipython span.cm-link {
+  color: #00c;
+}
+.cm-s-ipython span.cm-error {
+  color: #f00;
+}
+.cm-s-ipython span.cm-tab {
+  background: url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADAAAAAMCAYAAAAkuj5RAAAAAXNSR0IArs4c6QAAAGFJREFUSMft1LsRQFAQheHPowAKoACx3IgEKtaEHujDjORSgWTH/ZOdnZOcM/sgk/kFFWY0qV8foQwS4MKBCS3qR6ixBJvElOobYAtivseIE120FaowJPN75GMu8j/LfMwNjh4HUpwg4LUAAAAASUVORK5CYII=);
+  background-position: right;
+  background-repeat: no-repeat;
+}
+div.output_wrapper {
+  /* this position must be relative to enable descendents to be absolute within it */
+  position: relative;
+  /* Old browsers */
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-box-align: stretch;
+  display: -moz-box;
+  -moz-box-orient: vertical;
+  -moz-box-align: stretch;
+  display: box;
+  box-orient: vertical;
+  box-align: stretch;
+  /* Modern browsers */
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  z-index: 1;
+}
+/* class for the output area when it should be height-limited */
+div.output_scroll {
+  /* ideally, this would be max-height, but FF barfs all over that */
+  height: 24em;
+  /* FF needs this *and the wrapper* to specify full width, or it will shrinkwrap */
+  width: 100%;
+  overflow: auto;
+  border-radius: 2px;
+  -webkit-box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.8);
+  box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.8);
+  display: block;
+}
+/* output div while it is collapsed */
+div.output_collapsed {
+  margin: 0px;
+  padding: 0px;
+  /* Old browsers */
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-box-align: stretch;
+  display: -moz-box;
+  -moz-box-orient: vertical;
+  -moz-box-align: stretch;
+  display: box;
+  box-orient: vertical;
+  box-align: stretch;
+  /* Modern browsers */
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+}
+div.out_prompt_overlay {
+  height: 100%;
+  padding: 0px 0.4em;
+  position: absolute;
+  border-radius: 2px;
+}
+div.out_prompt_overlay:hover {
+  /* use inner shadow to get border that is computed the same on WebKit/FF */
+  -webkit-box-shadow: inset 0 0 1px #000;
+  box-shadow: inset 0 0 1px #000;
+  background: rgba(240, 240, 240, 0.5);
+}
+div.output_prompt {
+  color: #D84315;
+}
+/* This class is the outer container of all output sections. */
+div.output_area {
+  padding: 0px;
+  page-break-inside: avoid;
+  /* Old browsers */
+  display: -webkit-box;
+  -webkit-box-orient: horizontal;
+  -webkit-box-align: stretch;
+  display: -moz-box;
+  -moz-box-orient: horizontal;
+  -moz-box-align: stretch;
+  display: box;
+  box-orient: horizontal;
+  box-align: stretch;
+  /* Modern browsers */
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+}
+div.output_area .MathJax_Display {
+  text-align: left !important;
+}
+div.output_area 
+div.output_area 
+div.output_area img,
+div.output_area svg {
+  max-width: 100%;
+  height: auto;
+}
+div.output_area img.unconfined,
+div.output_area svg.unconfined {
+  max-width: none;
+}
+/* This is needed to protect the pre formating from global settings such
+   as that of bootstrap */
+.output {
+  /* Old browsers */
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-box-align: stretch;
+  display: -moz-box;
+  -moz-box-orient: vertical;
+  -moz-box-align: stretch;
+  display: box;
+  box-orient: vertical;
+  box-align: stretch;
+  /* Modern browsers */
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+}
+@media (max-width: 540px) {
+  div.output_area {
+    /* Old browsers */
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-box-align: stretch;
+    display: -moz-box;
+    -moz-box-orient: vertical;
+    -moz-box-align: stretch;
+    display: box;
+    box-orient: vertical;
+    box-align: stretch;
+    /* Modern browsers */
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
+div.output_area pre {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  vertical-align: baseline;
+  color: black;
+  background-color: transparent;
+  border-radius: 0;
+}
+/* This class is for the output subarea inside the output_area and after
+   the prompt div. */
+div.output_subarea {
+  overflow-x: auto;
+  padding: 0.4em;
+  /* Old browsers */
+  -webkit-box-flex: 1;
+  -moz-box-flex: 1;
+  box-flex: 1;
+  /* Modern browsers */
+  flex: 1;
+  max-width: calc(100% - 14ex);
+}
+div.output_scroll div.output_subarea {
+  overflow-x: visible;
+}
+/* The rest of the output_* classes are for special styling of the different
+   output types */
+/* all text output has this class: */
+div.output_text {
+  text-align: left;
+  color: #000;
+  /* This has to match that of the the CodeMirror class line-height below */
+  line-height: 1.21429em;
+}
+/* stdout/stderr are 'text' as well as 'stream', but execute_result/error are *not* streams */
+div.output_stderr {
+  background: #fdd;
+  /* very light red background for stderr */
+}
+div.output_latex {
+  text-align: left;
+}
+/* Empty output_javascript divs should have no height */
+div.output_javascript:empty {
+  padding: 0;
+}
+.js-error {
+  color: darkred;
+}
+/* raw_input styles */
+div.raw_input_container {
+  line-height: 1.21429em;
+  padding-top: 5px;
+}
+pre.raw_input_prompt {
+  /* nothing needed here. */
+}
+input.raw_input {
+  font-family: monospace;
+  font-size: inherit;
+  color: inherit;
+  width: auto;
+  /* make sure input baseline aligns with prompt */
+  vertical-align: baseline;
+  /* padding + margin = 0.5em between prompt and cursor */
+  padding: 0em 0.25em;
+  margin: 0em 0.25em;
+}
+input.raw_input:focus {
+  box-shadow: none;
+}
+p.p-space {
+  margin-bottom: 10px;
+}
+div.output_unrecognized {
+  padding: 5px;
+  font-weight: bold;
+  color: red;
+}
+div.output_unrecognized a {
+  color: inherit;
+  text-decoration: none;
+}
+div.output_unrecognized a:hover {
+  color: inherit;
+  text-decoration: none;
+}
+.rendered_html {
+  color: #000;
+  /* any extras will just be numbers: */
+}
+
+
+
+.rendered_html :link {
+  text-decoration: underline;
+}
+.rendered_html :visited {
+  text-decoration: underline;
+}
+
+
+
+
+
+
+.rendered_html h1:first-child {
+  margin-top: 0.538em;
+}
+.rendered_html h2:first-child {
+  margin-top: 0.636em;
+}
+.rendered_html h3:first-child {
+  margin-top: 0.777em;
+}
+.rendered_html h4:first-child {
+  margin-top: 1em;
+}
+.rendered_html h5:first-child {
+  margin-top: 1em;
+}
+.rendered_html h6:first-child {
+  margin-top: 1em;
+}
+
+
+
+
+
+
+
+
+.rendered_html * + ul {
+  margin-top: 1em;
+}
+.rendered_html * + ol {
+  margin-top: 1em;
+}
+
+
+.rendered_html pre,
+
+
+
+.rendered_html tr,
+.rendered_html th,
+
+.rendered_html td,
+
+
+.rendered_html * + table {
+  margin-top: 1em;
+}
+
+.rendered_html * + p {
+  margin-top: 1em;
+}
+
+.rendered_html * + img {
+  margin-top: 1em;
+}
+.rendered_html img,
+
+.rendered_html img.unconfined,
+
+div.text_cell {
+  /* Old browsers */
+  display: -webkit-box;
+  -webkit-box-orient: horizontal;
+  -webkit-box-align: stretch;
+  display: -moz-box;
+  -moz-box-orient: horizontal;
+  -moz-box-align: stretch;
+  display: box;
+  box-orient: horizontal;
+  box-align: stretch;
+  /* Modern browsers */
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+}
+@media (max-width: 540px) {
+  div.text_cell > div.prompt {
+    display: none;
+  }
+}
+div.text_cell_render {
+  /*font-family: "Helvetica Neue", Arial, Helvetica, Geneva, sans-serif;*/
+  outline: none;
+  resize: none;
+  width: inherit;
+  border-style: none;
+  padding: 0.5em 0.5em 0.5em 0.4em;
+  color: #000;
+  box-sizing: border-box;
+  -moz-box-sizing: border-box;
+  -webkit-box-sizing: border-box;
+}
+a.anchor-link:link {
+  text-decoration: none;
+  padding: 0px 20px;
+  visibility: hidden;
+}
+h1:hover .anchor-link,
+h2:hover .anchor-link,
+h3:hover .anchor-link,
+h4:hover .anchor-link,
+h5:hover .anchor-link,
+h6:hover .anchor-link {
+  visibility: visible;
+}
+.text_cell.rendered .input_area {
+  display: none;
+}
+.text_cell.rendered 
+.text_cell.unrendered .text_cell_render {
+  display: none;
+}
+.cm-header-1,
+.cm-header-2,
+.cm-header-3,
+.cm-header-4,
+.cm-header-5,
+.cm-header-6 {
+  font-weight: bold;
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+}
+.cm-header-1 {
+  font-size: 185.7%;
+}
+.cm-header-2 {
+  font-size: 157.1%;
+}
+.cm-header-3 {
+  font-size: 128.6%;
+}
+.cm-header-4 {
+  font-size: 110%;
+}
+.cm-header-5 {
+  font-size: 100%;
+  font-style: italic;
+}
+.cm-header-6 {
+  font-size: 100%;
+  font-style: italic;
+}
+</style>
+<style type="text/css">.highlight .hll { background-color: #ffffcc }
+.highlight  { background: #f8f8f8; }
+.highlight .c { color: #408080; font-style: italic } /* Comment */
+.highlight .err { border: 1px solid #FF0000 } /* Error */
+.highlight .k { color: #008000; font-weight: bold } /* Keyword */
+.highlight .o { color: #666666 } /* Operator */
+.highlight .ch { color: #408080; font-style: italic } /* Comment.Hashbang */
+.highlight .cm { color: #408080; font-style: italic } /* Comment.Multiline */
+.highlight .cp { color: #BC7A00 } /* Comment.Preproc */
+.highlight .cpf { color: #408080; font-style: italic } /* Comment.PreprocFile */
+.highlight .c1 { color: #408080; font-style: italic } /* Comment.Single */
+.highlight .cs { color: #408080; font-style: italic } /* Comment.Special */
+.highlight .gd { color: #A00000 } /* Generic.Deleted */
+.highlight .ge { font-style: italic } /* Generic.Emph */
+.highlight .gr { color: #FF0000 } /* Generic.Error */
+.highlight .gh { color: #000080; font-weight: bold } /* Generic.Heading */
+.highlight .gi { color: #00A000 } /* Generic.Inserted */
+.highlight .go { color: #888888 } /* Generic.Output */
+.highlight .gp { color: #000080; font-weight: bold } /* Generic.Prompt */
+.highlight .gs { font-weight: bold } /* Generic.Strong */
+.highlight .gu { color: #800080; font-weight: bold } /* Generic.Subheading */
+.highlight .gt { color: #0044DD } /* Generic.Traceback */
+.highlight .kc { color: #008000; font-weight: bold } /* Keyword.Constant */
+.highlight .kd { color: #008000; font-weight: bold } /* Keyword.Declaration */
+.highlight .kn { color: #008000; font-weight: bold } /* Keyword.Namespace */
+.highlight .kp { color: #008000 } /* Keyword.Pseudo */
+.highlight .kr { color: #008000; font-weight: bold } /* Keyword.Reserved */
+.highlight .kt { color: #B00040 } /* Keyword.Type */
+.highlight .m { color: #666666 } /* Literal.Number */
+.highlight .s { color: #BA2121 } /* Literal.String */
+.highlight .na { color: #7D9029 } /* Name.Attribute */
+.highlight .nb { color: #008000 } /* Name.Builtin */
+.highlight .nc { color: #0000FF; font-weight: bold } /* Name.Class */
+.highlight .no { color: #880000 } /* Name.Constant */
+.highlight .nd { color: #AA22FF } /* Name.Decorator */
+.highlight .ni { color: #999999; font-weight: bold } /* Name.Entity */
+.highlight .ne { color: #D2413A; font-weight: bold } /* Name.Exception */
+.highlight .nf { color: #0000FF } /* Name.Function */
+.highlight .nl { color: #A0A000 } /* Name.Label */
+.highlight .nn { color: #0000FF; font-weight: bold } /* Name.Namespace */
+.highlight .nt { color: #008000; font-weight: bold } /* Name.Tag */
+.highlight .nv { color: #19177C } /* Name.Variable */
+.highlight .ow { color: #AA22FF; font-weight: bold } /* Operator.Word */
+.highlight .w { color: #bbbbbb } /* Text.Whitespace */
+.highlight .mb { color: #666666 } /* Literal.Number.Bin */
+.highlight .mf { color: #666666 } /* Literal.Number.Float */
+.highlight .mh { color: #666666 } /* Literal.Number.Hex */
+.highlight .mi { color: #666666 } /* Literal.Number.Integer */
+.highlight .mo { color: #666666 } /* Literal.Number.Oct */
+.highlight .sa { color: #BA2121 } /* Literal.String.Affix */
+.highlight .sb { color: #BA2121 } /* Literal.String.Backtick */
+.highlight .sc { color: #BA2121 } /* Literal.String.Char */
+.highlight .dl { color: #BA2121 } /* Literal.String.Delimiter */
+.highlight .sd { color: #BA2121; font-style: italic } /* Literal.String.Doc */
+.highlight .s2 { color: #BA2121 } /* Literal.String.Double */
+.highlight .se { color: #BB6622; font-weight: bold } /* Literal.String.Escape */
+.highlight .sh { color: #BA2121 } /* Literal.String.Heredoc */
+.highlight .si { color: #BB6688; font-weight: bold } /* Literal.String.Interpol */
+.highlight .sx { color: #008000 } /* Literal.String.Other */
+.highlight .sr { color: #BB6688 } /* Literal.String.Regex */
+.highlight .s1 { color: #BA2121 } /* Literal.String.Single */
+.highlight .ss { color: #19177C } /* Literal.String.Symbol */
+.highlight .bp { color: #008000 } /* Name.Builtin.Pseudo */
+.highlight .fm { color: #0000FF } /* Name.Function.Magic */
+.highlight .vc { color: #19177C } /* Name.Variable.Class */
+.highlight .vg { color: #19177C } /* Name.Variable.Global */
+.highlight .vi { color: #19177C } /* Name.Variable.Instance */
+.highlight .vm { color: #19177C } /* Name.Variable.Magic */
+.highlight .il { color: #666666 } /* Literal.Number.Integer.Long */</style>
+<style type="text/css">
+/* Temporary definitions which will become obsolete with Notebook release 5.0 */
+.ansi-black-fg { color: #3E424D; }
+.ansi-black-bg { background-color: #3E424D; }
+.ansi-black-intense-fg { color: #282C36; }
+.ansi-black-intense-bg { background-color: #282C36; }
+.ansi-red-fg { color: #E75C58; }
+.ansi-red-bg { background-color: #E75C58; }
+.ansi-red-intense-fg { color: #B22B31; }
+.ansi-red-intense-bg { background-color: #B22B31; }
+.ansi-green-fg { color: #00A250; }
+.ansi-green-bg { background-color: #00A250; }
+.ansi-green-intense-fg { color: #007427; }
+.ansi-green-intense-bg { background-color: #007427; }
+.ansi-yellow-fg { color: #DDB62B; }
+.ansi-yellow-bg { background-color: #DDB62B; }
+.ansi-yellow-intense-fg { color: #B27D12; }
+.ansi-yellow-intense-bg { background-color: #B27D12; }
+.ansi-blue-fg { color: #208FFB; }
+.ansi-blue-bg { background-color: #208FFB; }
+.ansi-blue-intense-fg { color: #0065CA; }
+.ansi-blue-intense-bg { background-color: #0065CA; }
+.ansi-magenta-fg { color: #D160C4; }
+.ansi-magenta-bg { background-color: #D160C4; }
+.ansi-magenta-intense-fg { color: #A03196; }
+.ansi-magenta-intense-bg { background-color: #A03196; }
+.ansi-cyan-fg { color: #60C6C8; }
+.ansi-cyan-bg { background-color: #60C6C8; }
+.ansi-cyan-intense-fg { color: #258F8F; }
+.ansi-cyan-intense-bg { background-color: #258F8F; }
+.ansi-white-fg { color: #C5C1B4; }
+.ansi-white-bg { background-color: #C5C1B4; }
+.ansi-white-intense-fg { color: #A1A6B2; }
+.ansi-white-intense-bg { background-color: #A1A6B2; }
+
+.ansi-bold { font-weight: bold; }
+</style>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div>
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="Solving-the-GLM-(the-hard-part)">Solving the GLM (the hard part)<a class="anchor-link" href="#Solving-the-GLM-(the-hard-part)">&#182;</a></h2><p>GLMs are a tricky bunch. They <em>sound</em> simple, but we're seeing in this series on GLMs that they aren't so easy to solve. In this third and final post on GLMs, we'll do some serious math to get a solution for GLMs, and then tidy things up and package it all into a nice little algorithm.</p>
+<p>The <a href="/glm-part-i">first post in this series</a> got us into the mindset of stating our goals and problems using a probabilistic framework. The <a href="/glm-part-ii">second post in this series</a> extended that idea to cover a wide range of linear models, and presented the idea of a data generation process. We ended that post with a concrete mathematical problem that we needed to solve, but we did not solve it because we said it was too damn hard. This post will introduce a solution to that equation via the method of <a href="https://en.wikipedia.org/wiki/Iteratively_reweighted_least_squares"><em>iteratively reweighted least squares</em> (IRLS)</a>. Finally, we'll package all that we've discussed up into a simple procedure for applying and solving GLMs.</p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div>
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="Solving-for-the-regression-coefficients-via-IRLS">Solving for the regression coefficients via IRLS<a class="anchor-link" href="#Solving-for-the-regression-coefficients-via-IRLS">&#182;</a></h2><h3 id="Quick-tangent:-exponential-family-mean-and-variance">Quick tangent: exponential family mean and variance<a class="anchor-link" href="#Quick-tangent:-exponential-family-mean-and-variance">&#182;</a></h3><p>For the derivations later on, two properties of exponential family distributions will prove quite important. For a random variable $Y$ that follows an exponential family distribution, we have:</p>
+<p>$$
+E\left[Y\right] = \mu = b'(\theta)\\
+Var\left[Y\right] = \frac{\phi}{w} b''(\theta)
+$$</p>
+<p>A lot of texts gloss over these two equations, but they are not hard to prove. The proofs can be found at the end of this post in the appendix.</p>
+<h3 id="The-score-equation">The score equation<a class="anchor-link" href="#The-score-equation">&#182;</a></h3><p>In the last post we wound up with the following equation, which we needed to solve to find the optimal regression coefficients:</p>
+<p>$$
+\vec{U}(\vec{\beta}) = \frac{1}{\phi} \left(\frac{\partial \vec{\theta}}{\partial \vec{\beta}}\right) \left[\vec{y} - \vec{\mu}\right] = \frac{1}{\phi} \left(\frac{\partial \vec{\theta}}{\partial \vec{\beta}}\right) \left[\vec{y} - g^{-1}(X \vec{\beta})\right] = \vec{0}
+$$</p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div>
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>The source of our troubles is that $\vec{\mu}$ is not necessarily a linear function of the inputs and when it is not, we will not have a closed form solution for $\vec{\beta}$. We begin to combat this issue by using an approximation of the $\vec{\mu}$ vector; specifically, we use a Taylor series approximation.</p>
+<h3 id="Taylor-approximation">Taylor approximation<a class="anchor-link" href="#Taylor-approximation">&#182;</a></h3><p>A Taylor series expansion is a way of approximating a function $f(x)$ in a region near a specific point in the function's domain $x_0$. With a Taylor series, we can trade off how good the approximation is with how complex the approximation is. If we use an infinite series of terms to approximate it, the estimate becomes arbitrarily good. If we only use a few terms for the approximation, then it is not as good, but remains simple and mathematically easy to analyze. Usually, a Taylor expansion is used to obtain a decent approximation of a function in a small region of the domain which is important to the problem.</p>
+<p>Consider the plot below. The function $f(x) = sin(x)$ is clearly a non-linear function, but in some small regions of the domain, near x = 0 for instance, the function behaves quite linearly. If we were faced with a problem where we knew that the region of the domain we cared about was near x = 0, then we could approximate $f(x) = sin(x)$ with just $f(x) = x$ without being too wrong. This is a property that we'll exploit with GLMs and the method of IRLS.</p>
+<p>For more rigid mathematical treatment, see <a href="http://www.sosmath.com/calculus/tayser/tayser01/tayser01.html">here</a> and <a href="https://en.wikipedia.org/wiki/Taylor_series">here</a>.</p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[14]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython2"><pre><span></span><span class="kn">import</span> <span class="nn">numpy</span> <span class="kn">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">matplotlib.pyplot</span> <span class="kn">as</span> <span class="nn">plt</span>
+<span class="kn">import</span> <span class="nn">seaborn</span> <span class="kn">as</span> <span class="nn">sns</span>
+<span class="o">%</span><span class="k">matplotlib</span> inline
+<span class="n">x</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="o">-</span><span class="mi">5</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">1000</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">x</span><span class="p">))</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">ylim</span><span class="p">([</span><span class="o">-</span><span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">])</span>
+</pre></div>
+
+</div>
+</div>
+</div>
+
+<div class="output_wrapper">
+<div class="output">
+
+
+<div class="output_area">
+
+<div class="prompt output_prompt">Out[14]:</div>
+
+
+
+
+<div class="output_text output_subarea output_execute_result">
+<pre>(-2, 2)</pre>
+</div>
+
+</div>
+
+<div class="output_area">
+
+<div class="prompt"></div>
+
+
+
+
+<div class="output_png output_subarea ">
+<img src="data:image/png;base64,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
+">
+</div>
+
+</div>
+
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div>
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h3 id="Expanding-the-score-equation-with-a-Taylor-series">Expanding the score equation with a Taylor series<a class="anchor-link" href="#Expanding-the-score-equation-with-a-Taylor-series">&#182;</a></h3><p>The expected value $\mu$ is a function of $\beta$, but is often times non-linear. We can approximate $\mu$ with a first-order Taylor expansion, but we should ask ourselves how good that approximation will actually be and if we can still live with the introduced error. Well, the Taylor expansion will be a good approximation in a small area around the point in the $\beta$ space which we do the approximation. Ideally, that point will be right around the optimal $\beta$ that we're looking for. The problem is that we don't know that optimal value of $\beta$ because that's what we're looking for in the first place! This seems like a circular problem: we need to know the best $\beta$, and to do that we need a good approximation of $\mu$, and to do that we need to know the best $\beta$, and to do that we need a good approximation of $\mu$, and to do that we...</p>
+<p>Ok, you get it. Well, if you thought "I bet we can use an iterative procedure to solve this silly problem," then you were right! We'll use IRLS, which has "iterative" right in the damn name.</p>
+<p>Roughly, we will start with some guess at the coefficients (hopefully an educated one), then we'll approximate $\mu$ in a region around that guess in coefficient space. We will then be able to solve the score equation for $\beta$, which will give us a <em>better</em> or <em>improved</em> value for the coefficients $\beta$. We can keep repeating until we converge to the optimal value.</p>
+<h3 id="Deriving-IRLS-for-GLMs">Deriving IRLS for GLMs<a class="anchor-link" href="#Deriving-IRLS-for-GLMs">&#182;</a></h3><p>Let's get down to the math. First, guess a value for $\vec{\beta} = \hat{\beta}$. This implies a guess for $\vec{\eta} = \hat{\eta}$, which yields the following Taylor expansion.</p>
+<p>$$
+\vec{\mu}(\vec{\eta}) \approx \mu(\hat{\eta}) + \mu'(\hat{\eta})(\vec{\eta} - \hat{\eta})\\
+\vec{\mu}(X\vec{\beta}) \approx g^{-1}(X \hat{\beta}) + \frac{\partial g^{-1}(\vec{\eta})}{\partial \vec{\eta}}\bigg|_{\hat{\eta}} \cdot (X\vec{\beta} - X\hat{\beta})\\
+$$</p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div>
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>We can rewrite the above equation as:</p>
+<p>$$
+\vec{\mu}(X\vec{\beta}) \approx \tilde{\mu} + W \cdot (X\vec{\beta} - X\hat{\beta})
+$$</p>
+<p>where $W$ is a diagonal matrix with $\frac{\partial g^{-1}(\vec{\eta})}{\partial \vec{\eta}}\bigg|_{\hat{\eta}}$ as its entries (this follows from the rules of matrix calculus - for a great review of this subject, <a href="http://www.colorado.edu/engineering/CAS/courses.d/IFEM.d/IFEM.AppF.d/IFEM.AppF.pdf">see here</a>). Now, plug in this approximation for $\vec{\mu}$ to the score equation:</p>
+<p>$$
+\vec{U} = \frac{1}{\phi} \left(\frac{\partial \vec{\theta}}{\partial \vec{\beta}}\right) \left[\vec{y} - \tilde{\mu} + W \cdot (X\hat{\beta} - X\vec{\beta})\right]\\
+= \frac{1}{\phi} \left(\frac{\partial \vec{\theta}}{\partial \vec{\beta}}\right) W \left[\vec{z} - X\vec{\beta}\right] \\ \text{where} \: \vec{z} = W^{-1}(\vec{y} - \tilde{\mu}) + X\vec{\beta}
+$$</p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div>
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>Alright, looking at this we can begin to see that things aren't so bad. The $W$ matrix (and therefore $W^{-1}$) is not hard to compute for almost all reasonable link functions. $\tilde{\mu}$ is simply a known function of the inputs and the guess of the regression coefficients $\hat{\beta}$. The only troubling term still left is $\left(\frac{\partial \vec{\theta}}{\partial \vec{\beta}}\right)$. Let's dissect it:</p>
+<p>$$
+\left(\frac{\partial \vec{\theta}}{\partial \vec{\beta}}\right) = \left(\frac{\partial \vec{\eta}}{\partial \vec{\beta}}\right) \left(\frac{\partial \vec{\theta}}{\partial \vec{\eta}}\right) 
+$$</p>
+<p>The $\frac{\partial \vec{\eta}}{\partial \vec{\beta}}$ term is easy:</p>
+<p>$$
+\eta = X\vec{\beta}\\
+\frac{\partial \vec{\eta}}{\partial \vec{\beta}} = X^T
+$$</p>
+<p>Now consider just the $\left(\frac{\partial \vec{\theta}}{\partial \vec{\eta}}\right)$. Remembering that $\theta = h(\mu)$ and $\mu = g^{-1}(\eta)$, we have:</p>
+<p>$$
+\frac{\partial \theta}{\partial \eta} = \frac{\partial h(\mu)}{\partial \mu} \frac{\partial \mu}{\partial \eta} = \frac{\partial h(\mu)}{\partial \mu} \frac{\partial g^{-1}(\eta)}{\partial \eta}
+$$</p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div>
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>We can simplify the $\frac{\partial h(\mu)}{\partial \mu}$ term into a nicer form.</p>
+<p>$$
+\frac{\partial h(\mu)}{\partial \mu} = \frac{\partial \theta}{\partial \mu} \: \text{since} \: \theta = h(\mu)\\
+= \frac{1}{\frac{\partial \mu}{\partial \theta}}\\
+= \frac{1}{\frac{\partial b'(\theta)}{\partial \theta}} \: \text{since} \: \mu = b'(\theta)\\
+= \frac{1}{b''(\theta)}\\
+= diag\left(\frac{1}{Var[Y]\frac{1}{\phi}}\right)
+$$</p>
+<p>The variance for exponential family distributions is usually a function of the expected value $\mu$. So, we can write:</p>
+<p>$$
+\frac{\partial h(\mu)}{\partial \mu} = diag\left(\frac{1}{Var(\vec{\mu})\frac{1}{\phi}}\right)
+$$</p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div>
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>Let's go back for a minute now. We set out trying to tackle the term:</p>
+<p>$$
+\left(\frac{\partial \vec{\theta}}{\partial \vec{\beta}}\right) = \left(\frac{\partial \vec{\eta}}{\partial \vec{\beta}}\right) \left(\frac{\partial \vec{\theta}}{\partial \vec{\eta}}\right) 
+$$</p>
+<p>Using some simplfications we just made, that turns into:</p>
+<p>$$
+\frac{\partial \vec{\theta}}{\partial \vec{\beta}} = \left(X^T\right) \left(diag\left(\frac{1}{Var(\mu_i)\frac{1}{\phi}}\right) \cdot \frac{\partial g^{-1}(\vec{\eta})}{\partial \vec{\eta}}\right)
+$$</p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div>
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>Using a nifty rule of calculus <a href="http://oregonstate.edu/instruct/mth251/cq/Stage6/Lesson/inverseDeriv.html">which is described here</a>, we can simplify as follows:</p>
+<p>$$
+\frac{\partial g^{-1}(\eta)}{\partial \eta} = \frac{1}{\frac{\partial g(\mu)}{\partial \mu}}
+$$</p>
+<p>which gives us:</p>
+<p>$$
+\frac{\partial \vec{\theta}}{\partial \vec{\beta}} = \left(X^T\right) \left(diag\left(\frac{1}{Var(\mu_i)\frac{1}{\phi}}\right) \cdot diag\left(\frac{1}{\frac{\partial g(\mu)}{\partial \mu}}\right)\right)
+$$</p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div>
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>Now, we can bring this all the way back to the score equation.</p>
+<p>$$
+\vec{U} = \frac{1}{\phi} \left(\frac{\partial \vec{\theta}}{\partial \vec{\beta}}\right)W \left[\vec{z} - X\vec{\beta}\right]\\
+= \frac{1}{\phi} \left(X^T diag\left(\frac{1}{Var(\mu_i)\frac{1}{\phi}}\right) \cdot diag\left(\frac{1}{\frac{\partial g(\mu)}{\partial \mu}}\right) \right) W \left[\vec{z} - X\vec{\beta}\right]\\
+= \left(X^T diag\left(\frac{1}{Var(\mu_i)}\right) \cdot diag\left(\frac{1}{\frac{\partial g(\mu)}{\partial \mu}}\right) \right) W \left[\vec{z} - X\vec{\beta}\right]\\
+$$</p>
+<p>Remember from earlier that</p>
+<p>$$
+W = diag\left( \frac{\partial g^{-1}(\eta)}{\partial \eta} \right) = diag\left(\frac{1}{\frac{\partial g(\mu)}{\partial \mu}}\right)
+$$</p>
+<p>We can condense the three diagonal matrices above into one by defining a new variable:</p>
+<p>$$
+\tilde{W} = diag\left(\frac{1}{Var(\vec{\mu})} \frac{1}{\frac{\partial g(\mu)}{\partial \mu}}\right) W\\
+= diag\left( \frac{1}{Var(\vec{\mu})} \frac{1}{\left(\frac{\partial g(\mu)}{\partial \mu}\right)^2}\right)
+$$</p>
+<p>This leaves us with, finally, a brand new form for the score equation:</p>
+<p>$$
+\vec{U}(\vec{\beta}) = X^T \tilde{W} \left[\vec{z} - X\vec{\beta}\right]
+$$</p>
+<p><strong>Pro Tip: this is the part where you get really excited.</strong></p>
+<p><img src="../../images/hooray_cat.jpg" width="400"></p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div>
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>Whew. We just went through what seems like a ton of work to basically simplify/restate the original score equation. However, the form of the score equation written above is very nice to solve. This matches exactly the form of a <a href="https://en.wikipedia.org/wiki/Least_squares#Weighted_least_squares">weighted least squares regression</a>, regressing $X\vec{\beta}$ onto $\vec{z}$, with diagonal weight matrix $\tilde{W}$. This equation <em>does</em> have a closed form solution:</p>
+<p>$$
+\vec{\beta}^* = \left(X^T\tilde{W}X\right)^{-1}X^T\tilde{W}\vec{z}
+$$</p>
+<p>This means that we are finally where we want to be! We now have a way to find the best regression coefficients $\vec{\beta}$ by solving the score equation using an approximation to the $\mu(\vec{\beta})$ function near some initial guess $\hat{\beta}$.</p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div>
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h3 id="The-full-IRLS-algorithm">The full IRLS algorithm<a class="anchor-link" href="#The-full-IRLS-algorithm">&#182;</a></h3><ol>
+<li>Choose an exponential family distribution for the outcome $y$</li>
+<li>Choose a link function $g(\mu) = \eta$</li>
+<li>Start with an initial guess for the expected value $\hat{\mu}$</li>
+<li>Compute the linear predictor $\hat{\eta} = g(\mu)$</li>
+<li>Fit a least squares model $\vec{\beta} = (X^TX)^{-1}X^T\hat{\eta}$</li>
+<li>Repeat until convergence<ol>
+<li>$\hat{\eta} = X\vec{\beta}$</li>
+<li>$\hat{\mu} = g^{-1}(\hat{\eta})$</li>
+<li>Compute the new weights $w_i = \frac{1}{Var(\mu_i) \cdot \left(\frac{\partial g(\mu_i)}{\partial \mu_i}\right)^2}$</li>
+<li>Compute the new response $z_i = \eta_i + (y_i - \mu_i) \cdot \frac{\partial g(\mu)}{\partial \mu}$</li>
+<li>Solve for the improved coefficients using a weighted least squares solver $\vec{\beta} = \left(X^T\tilde{W}X\right)^{-1}X^T\tilde{W}\vec{z}$</li>
+</ol>
+</li>
+<li>Return optimal coefficients $\vec{\beta}^* = \vec{\beta}$</li>
+</ol>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div>
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="Putting-it-all-together-now">Putting it all together now<a class="anchor-link" href="#Putting-it-all-together-now">&#182;</a></h2><p>We've talked about a lot of things, introduced a boatload of notation, and done some pretty clever calculus. It is not hard to forget how each piece fits in the larger picture of solving a GLM, so we will now make an effort to put everything back together in one nice procedure.</p>
+<p>Start by remembering why we use a GLM and what we hope to get out of it. Earlier in the series, we said:</p>
+<blockquote><p>We want to use the data to find the process by which the data generates the outcome.</p>
+</blockquote>
+<p>Which, through a series of logical deductions, we expanded to mean:</p>
+<blockquote><p>We want to use a linear combination of our data to find the parameters of the exponential family distribution that maximize the likelihood of observing the outcome data in the training set.</p>
+</blockquote>
+<p>We did this by stating what the likelihood function was and how it depends on the regression coefficients. We used calculus to come up with an equation that, if solved, would yield the optimal regression coefficients. We then derived the method of IRLS to find a way of solving that equation.</p>
+<p>Now, as a data scientist that has decided to use a GLM to solve a prediction problem, you can follow the procedure below.</p>
+<ol>
+<li>Decide what exponential family distribution that the output $y$ is drawn from (e.g. the number of persons killed by mule or horse kicks in the Prussian army per year is a positive count variable, so choose Poisson)</li>
+<li>Decide what link function to use (e.g. for a binary outcome, the expected value $\mu$ should be restricted to [0, 1], so choose $\eta = g(\mu) = log(\frac{\mu}{1 - \mu})$)</li>
+<li>Use the IRLS algorithm to solve for the optimal regression coefficients $\vec{\beta}^*$</li>
+</ol>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div>
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="Appendix:-Exponential-family-mean-and-variance">Appendix: Exponential family mean and variance<a class="anchor-link" href="#Appendix:-Exponential-family-mean-and-variance">&#182;</a></h2><p>We will show that, for a random variable $Y$ drawn from an exponential family distribution, the following holds:</p>
+<p>$$
+E\left[Y\right] = \mu = b'(\theta)\\
+Var\left[Y\right] = \frac{\phi}{w} b''(\theta)
+$$</p>
+<p>Start by with the identity that any probability distribution must integrate to 1.</p>
+<p>$$
+\int f(y) \: dy= 1
+$$</p>
+<p>Now differentiate both sides w.r.t $\theta$.</p>
+<p>$$
+\frac{d}{d \theta} \int f(y) \: dy = 0\\
+\int \left(\frac{d}{d \theta} f(y)\right) \: dy = 0\\
+\int f(y) \frac{y - b'(\theta)}{\phi/w} \: dy = 0\\
+\int f(y) \cdot y \: dy - b'(\theta) \int f(y) \: dy = 0\\
+\int f(y) \cdot y \: dy = b'(\theta) \int f(y) \: dy
+$$</p>
+<p>Remember the definition for expected value: $E[Y] = \int f(y) \cdot y \: dy$. Also note the equality we started with: $\int f(y) \: dy = 1$. Substituting these equalities, we have:</p>
+<p>$$
+E[Y] = b'(\theta)
+$$</p>
+<p>We can perform a similar simplification for the variance:</p>
+<p>$$
+\int \left(\frac{d^2}{d \theta^2} f(y)\right) dy = 0\\
+\int \frac{d}{d \theta} \left(f(y) \frac{y - b'(\theta)}{\phi/w}\right) dy = 0\\
+\int f(y) \frac{-b''(\theta)}{\phi/w} \: dy + \int f(y) \left(\frac{y - b'(\theta)}{\phi/w}\right)^2 \: dy\\
+\frac{-b''(\theta)}{\phi/w} \int f(y) \: dy + \frac{1}{\left(\phi/w\right)^2} \left[ \int f(y) y^2 \: dy - 2b'(\theta) \int f(y) y \: dy + b'(\theta)^2 \int f(y) \: dy \right]\\
+\frac{-b''(\theta)}{\phi/w} + \frac{1}{\left(\phi/w\right)^2} \left[ E[Y^2] - 2b'(\theta) E[Y] + b'(\theta)^2 \right]\\
+\frac{-b''(\theta)}{\phi/w} + \frac{1}{\left(\phi/w\right)^2} \left[ E[Y^2] - 2E[Y]^2 + E[Y]^2 \right]\\
+\frac{-b''(\theta)}{\phi/w} + \frac{1}{\left(\phi/w\right)^2} Var[Y] = 0\\
+Var[Y] = \frac{b''(\theta)}{w/\phi}
+$$</p>
+
+</div>
+</div>
+</div>
+ 
+
+
+<script type="text/javascript">if (!document.getElementById('mathjaxscript_pelican_#%@#$@#')) {
+    var mathjaxscript = document.createElement('script');
+    mathjaxscript.id = 'mathjaxscript_pelican_#%@#$@#';
+    mathjaxscript.type = 'text/javascript';
+    mathjaxscript.src = '//cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML';
+    mathjaxscript[(window.opera ? "innerHTML" : "text")] =
+        "MathJax.Hub.Config({" +
+        "    config: ['MMLorHTML.js']," +
+        "    TeX: { extensions: ['AMSmath.js','AMSsymbols.js','noErrors.js','noUndefined.js'], equationNumbers: { autoNumber: 'AMS' } }," +
+        "    jax: ['input/TeX','input/MathML','output/HTML-CSS']," +
+        "    extensions: ['tex2jax.js','mml2jax.js','MathMenu.js','MathZoom.js']," +
+        "    displayAlign: 'center'," +
+        "    displayIndent: '0em'," +
+        "    showMathMenu: true," +
+        "    tex2jax: { " +
+        "        inlineMath: [ ['$','$'] ], " +
+        "        displayMath: [ ['$$','$$'] ]," +
+        "        processEscapes: true," +
+        "        preview: 'TeX'," +
+        "    }, " +
+        "    'HTML-CSS': { " +
+        " linebreaks: { automatic: true, width: '95% container' }, " +
+        "        styles: { '.MathJax_Display, .MathJax .mo, .MathJax .mi, .MathJax .mn': {color: 'black ! important'} }" +
+        "    } " +
+        "}); ";
+    (document.body || document.getElementsByTagName('head')[0]).appendChild(mathjaxscript);
+}
+</script>
+
+  </div>
+  <div class="tag-cloud">
+    <p>
+      <a href="https://sethah.github.io/tag/ml.html">ml</a>
+      <a href="https://sethah.github.io/tag/python.html">python</a>
+    </p>
+  </div>
+
+
+
+
+</article>
+
+    <footer>
+<p>&copy; Seth Hendrickson </p>
+<p>    Powered by <a href="http://getpelican.com" target="_blank">Pelican</a> - <a href="https://github.com/alexandrevicenzi/flex" target="_blank">Flex</a> theme by <a href="http://alexandrevicenzi.com" target="_blank">Alexandre Vicenzi</a>
+</p>    </footer>
+  </main>
+
+
+
+
+
+<script type="application/ld+json">
+{
+  "@context" : "http://schema.org",
+  "@type" : "Blog",
+  "name": " Seth's Blog ",
+  "url" : "https://sethah.github.io",
+  "image": "/images/profile.jpg",
+  "description": ""
+}
+</script>
+</body>
+</html>
